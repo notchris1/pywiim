@@ -332,6 +332,7 @@ API_ENDPOINT_MUTE = "/httpapi.asp?command=setPlayerCmd:mute:"
 API_ENDPOINT_SEEK = "/httpapi.asp?command=setPlayerCmd:seek:"
 API_ENDPOINT_LOOPMODE = "/httpapi.asp?command=setPlayerCmd:loopmode:"
 API_ENDPOINT_SOURCE = "/httpapi.asp?command=switchmode:"
+API_ENDPOINT_SOURCE_AUDIO_PRO = "/httpapi.asp?command=setPlayerCmd:switchmode:"
 
 # Device info endpoints
 API_ENDPOINT_DEVICE_INFO = "/httpapi.asp?command=getDeviceInfo"
@@ -517,6 +518,7 @@ __all__ = [
     "API_ENDPOINT_VOLUME",
     "API_ENDPOINT_MUTE",
     "API_ENDPOINT_SEEK",
+    "API_ENDPOINT_SOURCE_AUDIO_PRO",
     "API_ENDPOINT_DEVICE_INFO",
     "API_ENDPOINT_FIRMWARE",
     "API_ENDPOINT_GROUP_SLAVES",

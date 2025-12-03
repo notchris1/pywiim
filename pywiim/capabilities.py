@@ -582,9 +582,9 @@ def detect_vendor(device_info: DeviceInfo) -> str:
         return "arylic"
 
     # Audio Pro devices
-    if any(pro in model_lower for pro in ["audio pro", "addon", "a10", "a15", "a28", "c10"]):
+    if any(pro in model_lower for pro in ["audio pro", "audiopro", "addon", "link", "a10", "a15", "a28", "c10"]):
         return "audio_pro"
-    if "audio pro" in name_lower or "addon" in name_lower:
+    if "audio pro" in name_lower or "addon" in name_lower or "link" in name_lower:
         return "audio_pro"
 
     return "linkplay_generic"

@@ -27,6 +27,7 @@ from .constants import (
     API_ENDPOINT_RESUME,
     API_ENDPOINT_SEEK,
     API_ENDPOINT_SOURCE,
+    API_ENDPOINT_SOURCE_AUDIO_PRO,
     API_ENDPOINT_STOP,
     API_ENDPOINT_VOLUME,
     AUDIO_OUTPUT_MODE_MAP,
@@ -177,16 +178,119 @@ class PlaybackAPI:
     # Source selection
     # ------------------------------------------------------------------
 
+    async def get_current_source(self) -> str | None:
+        """Get current input source via UPnP.
+
+        Uses UPnP GetMediaInfo to read the current source from the device.
+        This is the most reliable method for Audio Pro devices.
+
+        Returns:
+            Current source name ("bluetooth", "line_in", "usb", "wifi", or "unknown"),
+            or None if UPnP is not available or the request fails.
+
+        Note:
+            - For Audio Pro devices, this uses UPnP GetMediaInfo which reports accurate values
+            - Empty string ('') from UPnP typically indicates WiFi/Network mode
+            - This method requires UPnP client to be initialized
+        """
+        # Check if UPnP client is available
+        upnp_client = getattr(self, 'upnp_client', None)
+        if upnp_client is None:
+            _LOGGER.debug("UPnP client not available for get_current_source()")
+            return None
+
+        try:
+            # Get media info from UPnP
+            media_info = await upnp_client.get_media_info()
+            if not media_info:
+                return None
+
+            current_uri = media_info.get('CurrentURI', '')
+            
+            # Map UPnP CurrentURI values to library source names
+            uri_map = {
+                'BLUETOOTH': 'bluetooth',
+                'RCA': 'line_in',
+                'EXTERNAL_USB': 'usb',
+                '': 'wifi',  # Empty string indicates WiFi/Network mode
+            }
+            
+            source = uri_map.get(current_uri, 'unknown')
+            _LOGGER.debug("Current source from UPnP: %s (CurrentURI=%s)", source, current_uri)
+            return source
+
+        except Exception as err:
+            _LOGGER.debug("Failed to get current source via UPnP: %s", err)
+            return None
+
     async def set_source(self, source: str) -> None:
-        """Set audio source using WiiM's switchmode command.
+        """Set audio source using device-specific switchmode command.
+
+        Uses standard LinkPlay source naming conventions from python-linkplay library.
+        These source names work across many LinkPlay-based devices (WiiM, Arylic, Audio Pro, etc.).
+
+        For Audio Pro devices, uses setPlayerCmd:switchmode with mapped source names.
+        For other devices, uses standard switchmode command.
+
+        Common sources (based on LinkPlay PlayingMode):
+        - bluetooth: Bluetooth input (PlayingMode.BLUETOOTH = "41")
+        - line_in: Line In/RCA input (PlayingMode.RCA = "44")
+        - wifi: WiFi/Network streaming (PlayingMode.NETWORK = "10")
+        - usb: USB disk input (PlayingMode.UDISK = "21")
+        
+        Other devices may support additional sources:
+        - optical: Optical input
+        - coax: Coaxial input
+        - hdmi: HDMI input
 
         Args:
             source: Source to switch to (e.g., "wifi", "bluetooth", "line_in", "optical").
 
         Raises:
+            ValueError: If source is not supported on this device.
             WiiMError: If the request fails.
         """
-        await self._request(f"{API_ENDPOINT_SOURCE}{source}")  # type: ignore[attr-defined]
+        # Check if this is an Audio Pro device
+        # Get capabilities - if not yet detected, detect vendor from current status
+        capabilities = getattr(self, '_capabilities', {})
+        vendor = capabilities.get('vendor', '')
+        
+        # If vendor not yet detected in capabilities, try detecting now
+        if not vendor:
+            # Try to detect from device info if available
+            try:
+                from ..capabilities import detect_vendor
+                from ..models import DeviceInfo
+                from ..normalize import normalize_vendor
+                status_dict = await self.get_status()  # type: ignore[attr-defined]
+                if status_dict:
+                    device_info = DeviceInfo(**status_dict)
+                    vendor = detect_vendor(device_info)
+                    vendor = normalize_vendor(vendor)
+            except Exception:
+                pass  # Vendor detection failed, use standard endpoint
+        
+        if vendor == 'audio_pro':
+            # Audio Pro devices use setPlayerCmd:switchmode with specific source mappings
+            # Map library source names to Audio Pro HTTP commands
+            audio_pro_source_map = {
+                'bluetooth': 'bluetooth',
+                'line_in': 'RCA',
+                'wifi': 'wifi',  # Switch to WiFi/Network mode
+                'usb': 'udisk',  # USB disk input
+            }
+            
+            if source not in audio_pro_source_map:
+                raise ValueError(
+                    f"Source '{source}' not supported on Audio Pro devices. "
+                    f"Supported sources: {', '.join(audio_pro_source_map.keys())}"
+                )
+            
+            audio_pro_source = audio_pro_source_map[source]
+            await self._request(f"{API_ENDPOINT_SOURCE_AUDIO_PRO}{audio_pro_source}")  # type: ignore[attr-defined]
+        else:
+            # Standard LinkPlay/WiiM devices use standard switchmode
+            await self._request(f"{API_ENDPOINT_SOURCE}{source}")  # type: ignore[attr-defined]
 
     # ------------------------------------------------------------------
     # Audio Output Control
