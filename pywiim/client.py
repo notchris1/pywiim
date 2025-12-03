@@ -111,7 +111,7 @@ class WiiMClient(
         host: str,
         port: int | None = None,
         protocol: str | None = None,
-        timeout: float = 5.0,
+        timeout: float = 30.0,
         ssl_context: ssl.SSLContext | None = None,
         session: ClientSession | None = None,
         capabilities: dict[str, Any] | None = None,
@@ -122,7 +122,7 @@ class WiiMClient(
             host: Device hostname or IP address
             port: Optional port override. If None, will probe standard ports.
             protocol: Optional protocol override ("http" or "https"). If None, will probe both.
-            timeout: Network timeout in seconds
+            timeout: Network timeout in seconds (default 30s for mTLS devices like Audio Pro)
             ssl_context: Custom SSL context for advanced use cases
             session: Optional shared aiohttp ClientSession
             capabilities: Optional pre-detected device capabilities
